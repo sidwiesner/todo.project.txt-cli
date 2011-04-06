@@ -1,44 +1,72 @@
 #!/bin/sh
 
-# NOTE: project.sh requires the .todo configuration file to run.
-# Place the .todo file in your home directory or use the -d option for
-# a custom location.
+# NOTE:  project.sh requires the todo.cfg configuration file to run.
+# Place the todo.cfg file in your home directory or use the -d option for a custom location.
 
+[ -f VERSION-FILE ] && . VERSION-FILE || VERSION="1.2"
 version() { sed -e 's/^    //' <<EndVersion
-        PROJECT.TXT Manager
-        Version 1.1
         Author: Michael Stiber (stiber@acm.org), with code liberally
                 "borrowed" from TODO.TXT v1.7.3 by Gina Trapani
                 (ginatrapani@gmail.com) -- OK, it's basically a
                 hacked-up version of todo.txt
         Release date:  8/29/06
-        Last updated:  12/10/06
+        Last updated:  08/31/09
         Version history:
            1.0 (8/29/06): Public release
            1.1 (12/10/06): Added "done" command
+           1.2 (08/31/09): Sid - migrated to be similar to new todo.sh
         License:  GPL, http://www.gnu.org/copyleft/gpl.html
         More information and mailing list at http://todotxt.com
 EndVersion
     exit 1
 }
 
+# Set script name early.
+PROJECT_SH=$(basename "$0")
+export PROJECT_SH
+
+oneline_usage="$PROJECT_SH [-acfhpqvV] [-d todo_config] action project_name [task_number] [task_description]"
+
 usage()
 {
-    sed -e 's/^    //' <<EndUsage 
-    Usage: project.sh  [-acfhpqvV] [-d todo_config] action project_name [task_number] [task_description]
-    Try 'project.sh -h' for more information.    
+    sed -e 's/^    //' <<EndUsage
+    Usage: $oneline_usage
+    Try '$PROJECT_SH -h' for more information.
 EndUsage
     exit 1
 }
 
+shorthelp()
+{
+    sed -e 's/^    //' <<EndHelp
+      Usage: $oneline_usage
+
+      Actions:
+        add|a PROJECT_NAME "@context THING I NEED TO DO"
+        append|app PROJECT_NAME NUMBER "TEXT TO APPEND"
+        del|rm PROJECT_NAME NUMBER
+        done PROJECT_NAME NUMBER
+        help
+        list|ls PROJECT_NAME [TERM...] 
+        listall|la
+        next|n [PROJECT_NAME] [NUMBER]
+        overview|over
+        prepend|prep PROJECT_NAME NUMBER "TEXT TO PREPEND"
+        replace PROJECT_NAME NUMBER "UPDATED TODO"
+        update|up [PROJECT_NAME]
+
+      See "help" for more details.
+EndHelp
+    exit 0
+}
 
 help()
 { 
     sed -e 's/^    //' <<EndHelp
-      PROJECT.SH: Add tasks to individual project files; move tasks to
-                  main todo.txt file when needed
+      $PROJECT_SH: Add tasks to individual project files; move tasks to
+                   main todo.txt file when needed
 
-      Usage:  project.sh [-fhpqvV] [-d todo_config] action [project_name] [task_number] [task_description]
+      Usage:  $oneline_usage
 
       Actions:
         add PROJECT_NAME "@context THING I NEED TO DO"
@@ -145,6 +173,19 @@ help()
             Displays version, license and credits
 EndHelp
 
+    if [ -d "$PROJECT_ACTIONS_DIR" ]
+    then
+        echo ""
+        for action in "$PROJECT_ACTIONS_DIR"/*
+        do
+            if [ -x "$action" ]
+            then
+                "$action" usage
+            fi
+        done
+        echo ""
+    fi
+
     exit 1
 }
 
@@ -173,22 +214,7 @@ clean_project()
 }
 
 
-#--------------------------------------------------
-#
-# Start of main part of shell script
-
-THIS_CMD=`basename $0`
-
 # == PROCESS OPTIONS ==
-# defaults
-VERBOSE=0
-PLAIN=0
-CFG_FILE=$HOME/.todo
-FORCE=0
-OPTION_STRING=""
-PROJECT_PREFIX="+"
-TODO_SORT=0
-
 while getopts ":acd:fhpqsvV" Option
 do
     case $Option in
@@ -207,7 +233,7 @@ do
 	    FORCE=1
 	    ;;
 	h)
-	    help
+	    shorthelp
 	    ;;
 	p)
 	    OPTION_STRING="${OPTION_STRING} -${Option}"
@@ -230,6 +256,30 @@ do
     esac
 done
 shift $(($OPTIND - 1))
+
+# defaults if not yet defined
+VERBOSE=${VERBOSE:-0}
+PLAIN=${PLAIN:-0}
+CFG_FILE=${CFG_FILE:-$HOME/todo.cfg}
+FORCE=${FORCE:-0}
+OPTION_STRING=${OPTION_STRING:-""}
+PROJECT_PREFIX=${PROJECT_PREFIX:-"+"}
+TODO_SORT=${TODO_SORT:-0}
+
+[ -e "$CFG_FILE" ] || {
+    CFG_FILE_ALT="$HOME/.todo.cfg"
+
+    if [ -e "$CFG_FILE_ALT" ]
+    then
+        CFG_FILE="$CFG_FILE_ALT"
+    fi
+}
+
+if [ -z "$PROJECT_ACTIONS_DIR" -o ! -d "$PROJECT_ACTIONS_DIR" ]
+then
+    PROJECT_ACTIONS_DIR="$HOME/.project.actions.d"
+    export PROJECT_ACTIONS_DIR
+fi
 
 # === SANITY CHECKS (thanks Karl!) ===
 [ -r "$CFG_FILE" ] || die "Fatal error:  Cannot read configuration file $CFG_FILE"
@@ -265,7 +315,7 @@ action=$( printf "%s\n" "$1" | tr 'A-Z' 'a-z' )
 
 case $action in 
 "add" | "a")
-	errmsg="usage: $THIS_CMD add PROJECT_NAME \"NEW ITEM\""
+	errmsg="usage: $PROJECT_SH add PROJECT_NAME \"NEW ITEM\""
 	shift; project=$1;
 	
 	clean_project
@@ -281,21 +331,21 @@ case $action in
 		shift
 		input=$*
 	fi
-	[[ $VERBOSE = 1 && ! ( -f $projfile ) ]] && echo "$THIS_CMD: Creating project file ${projfile}."
-	echo "$input" >> "$projfile" || die "$THIS_CMD: unable to write $projfile"
+	[[ $VERBOSE = 1 && ! ( -f $projfile ) ]] && echo "$PROJECT_SH: Creating project file ${projfile}."
+	echo "$input" >> "$projfile" || die "$PROJECT_SH: unable to write $projfile"
 
 	TASKNUM=$(wc -l "$projfile" | sed 's/^[[:space:]]*\([0-9]*\).*/\1/')
-	[[ $VERBOSE = 1 ]] && echo "$THIS_CMD: '$input' added as task $TASKNUM of project $project."
+	[[ $VERBOSE = 1 ]] && echo "$PROJECT_SH: '$input' added as task $TASKNUM of project $project."
 	cleanup;;
 
 
 "append" | "app" )
-	errmsg="usage: $THIS_CMD append PROJECT_NAME ITEM# \"TEXT TO APPEND\""
+	errmsg="usage: $PROJECT_SH append PROJECT_NAME ITEM# \"TEXT TO APPEND\""
 	shift; project=$1; shift; item=$1; shift
 
 	[ -z "$project" ] && die "$errmsg"
         projfile=${PROJ_DIR}/${project}.txt
-        [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+        [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 
 	[ -z "$item" ] && die "$errmsg"
 	[[ "$item" = +([0-9]) ]] || die "$errmsg"
@@ -312,7 +362,7 @@ case $action in
 		        NEWTODO=$(sed "$item!d" "$projfile")
 		        [[ $VERBOSE = 1 ]] && echo "$item: $NEWTODO"
 		else
-			echo "$THIS_CMD:  Error appending task $item."
+			echo "$PROJECT_SH:  Error appending task $item."
 		fi
 	else
 		echo "$item: No such item in file $projfile."
@@ -320,15 +370,39 @@ case $action in
 	cleanup;;
 
 
+"cleanup" | "clean" )
+	errmsg="usage: $PROJECT_SH cleanup PROJECT_NAME"
+	shift; project=$1;
+	
+	clean_project
+
+	[ -z "$project" ] && die "$errmsg"
+        projfile=${PROJ_DIR}/${project}.txt
+
+    if [[ -f $projfile ]]; then
+    	[[ $VERBOSE = 1 && ( -f $projfile ) ]] && echo "$PROJECT_SH: Removing project file ${projfile}."
+        NUMLINES=$( sed -n '$ =' "$projfile" )
+        if [ ${NUMLINES:-0} = "0" ]; then
+            unlink $projfile || die "$PROJECT_SH: unable to delete $projfile"
+            unlink $projfile.bak
+        else
+            echo "Project file not empty!"
+        fi
+    else
+        echo "Project file does not exist."
+    fi
+	cleanup;;
+
+
 "del" | "rm" )
-	errmsg="usage: $THIS_CMD del PROJECT_NAME ITEM#"
+	errmsg="usage: $PROJECT_SH del PROJECT_NAME ITEM#"
 	shift; project=$1;
 
 	clean_project
 
 	[ -z "$project" ] && die "$errmsg"
         projfile=${PROJ_DIR}/${project}.txt
-        [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+        [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 
 	item=$2
 	[ -z "$item" ] && die "$errmsg"
@@ -345,18 +419,18 @@ case $action in
 		
 	    if [ "$ANSWER" = "y" ]; then
 		       sed -i.bak -e $2"s/^.*//" -e '/./!d' "$projfile"
-		       [[ $VERBOSE = 1 ]] && echo "$THIS_CMD:  '$DELETEME' deleted."
+		       [[ $VERBOSE = 1 ]] && echo "$PROJECT_SH:  '$DELETEME' deleted."
 		       cleanup
 		else
-			echo "$THIS_CMD:  No tasks were deleted."
+			echo "$PROJECT_SH:  No tasks were deleted."
 		fi
 	else
 		echo "$item: No such todo."
         fi ;;
 
 
-"done" )
-	errmsg="usage: $THIS_CMD done PROJECT_NAME ITEM#"
+"done" | "do" )
+	errmsg="usage: $PROJECT_SH done PROJECT_NAME ITEM#"
 	shift; project=$1; shift; item=$1
 
 	clean_project
@@ -364,7 +438,7 @@ case $action in
 	# Both arguments are required
 	[ -z "$project" ] && die "$errmsg"
         projfile=${PROJ_DIR}/${project}.txt
-        [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+        [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 
 	[ -z "$item" ] && die "$errmsg"
 
@@ -379,15 +453,26 @@ case $action in
 	cleanup;;
 
 
+"edit" )
+  [ ! -z "$2" ] && project=$2.txt
+  $EDITOR $PROJ_DIR/$project
+  ;;
+
+
+"help" )
+    help
+    ;;
+
+
 "list" | "ls" )
-	errmsg="usage: THIS_CMD list PROJECT_NAME [TERM...]"
+	errmsg="usage: PROJECT_SH list PROJECT_NAME [TERM...]"
 	shift; project=$1;
 
 	clean_project
 
 	[ -z "$project" ] && die "$errmsg"
         projfile=${PROJ_DIR}/${project}.txt
-        [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+        [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 
 	item=$2
 	if [ -z "$item" ]; then
@@ -398,7 +483,7 @@ case $action in
 	    fi
 	    echo "--"
 	    NUMTASKS=$(wc -l "$projfile" | sed 's/^[[:space:]]*\([0-9]*\).*/\1/')
-	    echo "$THIS_CMD: $NUMTASKS tasks in project $project."
+	    echo "$PROJECT_SH: $NUMTASKS tasks in project $project."
 	else
 	    if [ $TODO_SORT = 0 ]; then
 		cat -b $projfile | grep -i $item
@@ -419,7 +504,7 @@ case $action in
 
 
 "listall" | "la")
-	errmsg="usage: $THIS_CMD listall"
+	errmsg="usage: $PROJECT_SH listall"
 
 	projfiles="${PROJ_DIR}/*.txt"
 	for f in $projfiles
@@ -432,7 +517,7 @@ case $action in
 
 
 "next" | "n")
-	errmsg="usage: $THIS_CMD next [PROJECT_NAME] [ITEM#]"
+	errmsg="usage: $PROJECT_SH next [PROJECT_NAME] [ITEM#]"
 	shift; project=$1; shift; item=$1
 
 	clean_project
@@ -440,36 +525,40 @@ case $action in
 	# If project name not given, command applies to all project files
 	if [[ -n "$project" ]]; then
 	    projfile=${PROJ_DIR}/${project}.txt
-            [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+            [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 	    [[ -z "$item" ]] && item=1
-	    [[ $VERBOSE = 1 ]] && echo "Adding item $item from project $project to todos"
-	    todo.sh $OPTION_STRING add ${PROJECT_PREFIX}${project} $(sed "${item}!d" "$projfile") || die "Unable to add $item from project $project to todos"
-
-	    sed -i.bak -e "${item}s/^.*//" -e '/./!d' "$projfile"
+	    new_task=$(sed "${item}!d" "$projfile")
+	    if [[ $new_task = "" ]]; then
+	        echo "No more tasks left in the file"
+	    else
+    	    [[ $VERBOSE = 1 ]] && echo "Adding item $item from project $project to todos"
+    	    todo.sh $OPTION_STRING add ${PROJECT_PREFIX}${project} $new_task || die "Unable to add $item from project $project to todos"
+	        sed -i.bak -e "${item}s/^.*//" -e '/./!d' "$projfile"
+        fi
 	else
-            if  [ $FORCE = 0 ]; then
-                echo "Add task from all project files? (y/n)"
-                read ANSWER
-            else    
-                ANSWER="y"
-            fi      
-                
-            if [ "$ANSWER" = "y" ]; then
-	        projfiles="${PROJ_DIR}/*.txt"
-	        for f in $projfiles
-	        do
-		    project=`basename $f`
-		    project=${project%.txt}
-		    [[ $VERBOSE = 1 ]] && echo "Adding item 1 from project $project to todos"
-		    todo.sh $OPTION_STRING add ${PROJECT_PREFIX}${project} `head -1 $f` || die "Unable to add item from project $project to todos"
-		    sed -i.bak -e "1s/^.*//" -e '/./!d' "$f"
-	        done
-            fi
+        if  [ $FORCE = 0 ]; then
+            echo "Add task from all project files? (y/n)"
+            read ANSWER
+        else    
+            ANSWER="y"
+        fi      
+            
+        if [ "$ANSWER" = "y" ]; then
+        projfiles="${PROJ_DIR}/*.txt"
+        for f in $projfiles
+        do
+	    project=`basename $f`
+	    project=${project%.txt}
+	    [[ $VERBOSE = 1 ]] && echo "Adding item 1 from project $project to todos"
+	    todo.sh $OPTION_STRING add ${PROJECT_PREFIX}${project} `head -1 $f` || die "Unable to add item from project $project to todos"
+	    sed -i.bak -e "1s/^.*//" -e '/./!d' "$f"
+        done
+        fi
 	fi
 	cleanup;;
 
 
-"overview" | "over" )
+"overview" | "over" | "o" )
 	echo "Projects in project file directory:"
 	printf "%-20s\t%-10s\n" "PROJECT" "TASKS"
 	
@@ -484,14 +573,14 @@ case $action in
 
 
 "prepend" | "prep" )
-	errmsg="usage: $THIS_CMD prepend PROJECT_NAME ITEM# \"TEXT TO PREPEND\""
+	errmsg="usage: $PROJECT_SH prepend PROJECT_NAME ITEM# \"TEXT TO PREPEND\""
 	shift; project=$1; shift; item=$1; shift
 
 	clean_project
 
 	[ -z "$project" ] && die "$errmsg"
         projfile=${PROJ_DIR}/${project}.txt
-        [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+        [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 
 	[ -z "$item" ] && die "$errmsg"
 	[[ "$item" = +([0-9]) ]] || die "$errmsg"
@@ -508,7 +597,7 @@ case $action in
 		        NEWTODO=$(sed "$item!d" "$projfile")
 		        [[ $VERBOSE = 1 ]] && echo "$item: $NEWTODO"
 		else
-			echo "$THIS_CMD:  Error prepending task $item."
+			echo "$PROJECT_SH:  Error prepending task $item."
 		fi
 	else
 		echo "$item: No such item in file $projfile."
@@ -517,14 +606,14 @@ case $action in
 
 
 "replace" )
-	errmsg="usage: $THIS_CMD replace PROJECT_NAME ITEM# \"UPDATED ITEM\""
+	errmsg="usage: $PROJECT_SH replace PROJECT_NAME ITEM# \"UPDATED ITEM\""
 	shift; project=$1; shift; item=$1; shift
 
 	clean_project
 
 	[ -z "$project" ] && die "$errmsg"
         projfile=${PROJ_DIR}/${project}.txt
-        [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+        [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 
 	[ -z "$item" ] && die "$errmsg"
 	[[ "$item" = +([0-9]) ]] || die "$errmsg"
@@ -548,7 +637,7 @@ case $action in
 
 
 "update" | "up")
-	errmsg="usage: $THIS_CMD update [PROJECT_NAME]"
+	errmsg="usage: $PROJECT_SH update [PROJECT_NAME]"
 	shift; project=$1;
 
 	clean_project
@@ -556,7 +645,7 @@ case $action in
 	# If project name not given, command applies to all project files
 	if [[ -n "$project" ]]; then
 	    projfile=${PROJ_DIR}/${project}.txt
-            [ -f "$projfile" ] || die "$THIS_CMD: $projfile nonexistent"
+            [ -f "$projfile" ] || die "$PROJECT_SH: $projfile nonexistent"
 	    if grep "${PROJECT_PREFIX}${project}" $TODO_FILE > /dev/null; then
 		[[ $VERBOSE = 1 ]] && echo "Task for ${project} already in todo file; use \"next\" command to force."
 	    else
@@ -566,17 +655,22 @@ case $action in
 	    fi
 	else
 	    projfiles="${PROJ_DIR}/*.txt"
-	    printf "%-10s\t%4s\t%-50s\n" "PROJECT" "LINE" "COMMENT"
+	    printf "%-20s %4s  %-50s\n" "PROJECT" "LINE" "COMMENT"
 	    for f in $projfiles
 	    do
 		project=`basename $f`
 		project=${project%.txt}
 		if grep "${PROJECT_PREFIX}${project}" $TODO_FILE > /dev/null ; then
-		    printf "%-10s\t%4s\t%-50s\n" $project "*" "Todo file already has task; use \"next\" to force."
+		    printf "%-20s %4s  %-50s\n" $project "*" "Todo file already has task; use \"next\" to force."
 		else
-		    printf "%-10s\t%4d\t%-50s\n" $project 1 "Added to todo file"
-		    todo.sh $OPTION_STRING add ${PROJECT_PREFIX}${project} `head -1 $f` || die "Unable to add item from project $project to todos"
-		    sed -i.bak -e "1s/^.*//" -e '/./!d' "$f"
+		    new_task=`head -1 $f`
+		    if [[ $new_task = "" ]]; then
+    		    printf "%-20s %4d  %-50s\n" $project 0 "No more tasks in the project"
+		    else
+    		    printf "%-20s %4d  %-50s\n" $project 1 "Added to todo file"
+    		    todo.sh $OPTION_STRING add ${PROJECT_PREFIX}${project} $new_task || die "Unable to add item from project $project to todos"
+    		    sed -i.bak -e "1s/^.*//" -e '/./!d' "$f"
+	        fi
 		fi
 	    done
 	fi

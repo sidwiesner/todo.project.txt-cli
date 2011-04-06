@@ -5,20 +5,24 @@ Author      : Graham Davies <grahamdaviez@gmail.com>
 License     : GPL, http://www.gnu.org/copyleft/gpl.html
 Project Page: http://code.google.com/p/todo-py
 Direct link : http://todo-py.googlecode.com/svn/trunk/todo_cron.py
+Modified    : 2007/07/22 Sean <schliden@gmail.com>
+            : Added support for warnings, reminders and
+            : checks for duplicate tasks b4 adding
 """
 
 __version__   = "0.1.1-py"
 __revision__  = "$Revision$"
-__date__      = "2006/11/29"
+__date__      = "2007/07/17"
 __author__    = "Graham Davies (grahamdaviez@gmail.com)"
 __copyright__ = "Copyleft 2006, Graham Davies"
 __license__   = "GPL"
 __history__   = "See http://todo-py.googlecode.com/svn/trunk/CHANGELOG"
 
 import todo, re, sys, os, getopt, time
+from datetime import date
 
 # Local override - leave blank to use the normal todo.py directory
-TODO_DIR = ''
+TODO_DIR = '/Users/sid/Documents/todo'
 
 # Verbose - display extra info when running
 verbose = False
@@ -33,11 +37,12 @@ def help():
     # print __doc__
     text = """
 todo_cron.py Cron Helper for todo.py %s %s
-Usage: todo_cron.py [options] 
+Usage: todo_cron.py [options]
 
 Adds tasks from recur.txt that match today's date to todo.txt file
 Requires todo.py to be in the PATH or same directory
 Should be run once per day to avoid duplicates (*todo)
+** Now checks for duplicate tasks before adding: 2007/07/25 <schliden@gmail.com> **
 Example crontab entry: 00 05 * * * /home/user/bin/todo_cron.py
 Date format based on that used by remind:
 
@@ -47,8 +52,6 @@ Date format based on that used by remind:
 {1 15} do on 1st and 15th day of the month
 {Nov 29} @email birthday card every year to someone
 {Nov 22 2007} Eat turkey
-
-Not yet supported:
 {Nov 27 *5} Keep adding task for 5 days after event
 {Dec 01 +3} Add task 5 days before specified date
 
@@ -62,14 +65,15 @@ Options:
 
 def setDirs(dir):
     global RECUR_FILE, RECUR_BACKUP
-    
-    RECUR_FILE   = dir + os.path.sep + "recur.txt" 
-    RECUR_BACKUP = dir + os.path.sep + "recur.bak" 
+
+    RECUR_FILE   = dir + os.path.sep + "recur.txt"
+    RECUR_BACKUP = dir + os.path.sep + "recur.bak"
+    TODO_FILE    = dir + os.path.sep + "todo.txt"
     if verbose: print "Using file ", RECUR_FILE
     return True
 
 def singleDay(rem, today):
-    """Single Day - rucur every month on this date eg. {22}"""
+    """Single Day - recur every month on this date eg. {22}"""
     if rem.isdigit():
         event = time.strptime(rem, "%d")
         if event.tm_mday == today.tm_mday:
@@ -93,6 +97,17 @@ def monthDay(rem, today, warn=False, rep=False):
     """Month Day - add on this day every year eg. {Nov 22}"""
     try:
         event = time.strptime(rem,"%b %d")
+        # new code to handle warnings 2007/07/22
+        if warn:
+             for i in range(1, warn):
+                  if event.tm_mon == today.tm_mon and (event.tm_mday - i) == today.tm_mday:
+                      return True, True
+        # new code to handle repeats 2007/07/22
+        if rep:
+             for i in range(1, rep):
+                  if event.tm_mon == today.tm_mon and (event.tm_mday + i) == today.tm_mday:
+                      return True, True
+        # end new code
         if event.tm_mon == today.tm_mon and event.tm_mday == today.tm_mday:
             return True, True
         else: return True, False
@@ -160,15 +175,11 @@ def parseREM(rem):
 
     today = time.localtime()
 
-    # Warnings not yet supported - need datetime calculations
-    # Ignore the warning time for now and display on the given day
     warnDays, newrem = hasWarning(rem, today)
-    if warnDays: 
+    if warnDays:
         warnDays = int(warnDays)
         rem = newrem
 
-    # Repeated days not yet supported - need datetime calculations
-    # Ignore the repeat time for now and display on the given day
     repeatDays, newrem = hasRepeat(rem, today)
     if repeatDays:
         repeatDays = int(repeatDays)
@@ -204,12 +215,12 @@ def parseREM(rem):
     # xth DayOfWeek after date
     # {Mon 15}
 
-    # OMIT 
+    # OMIT
 
     #### Sub day --- no support planned
     # Times -- AT 5:00PM
     # {AT 5:00PM}
-    
+
 def addTodayTasks(file):
     """Add tasks occuring today from a file to the todo list"""
     rem = todo.getDict(file)
@@ -218,19 +229,35 @@ def addTodayTasks(file):
         re_date = re.compile(r"{([^}]+)} ")
         date = re.search(re_date, v)
         if date:
-            isToday = parseREM(date.group(1))
+            isToday = parseREM(date.group(1)) # date.group(1) = date in Remind format: Wed, 18 +3, Jan 26 +4
             if isToday:
                 task = re.sub(re_date, "", v)
+                if taskExists(task):
+                    if verbose: print "Exists: " + task
+                    continue
                 todo.add(task)
-                #if verbose: print "Added: ", task
         else:
             if verbose: print "No date found for ", v
 
+# new code to handle dupes 2007/07/25
+def taskExists(rem):
+    """Check for existing tasks in the TODO file"""
+    tasks = todo.getTaskDict()
+    theSet = set(tasks.values())
+    if rem in theSet:
+        return True
+    else:
+        return False
 
 if __name__ == "__main__":
 
-    opts, args = getopt.getopt(sys.argv[1:], 'hVvqd:',\
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hVvqd:',\
             ['help', 'version','todo-dir='])
+    except (getopt.GetoptError), why:
+        print "Sorry - option not recognized.  Try -h for help"
+        sys.exit()
+
 
     for o, a in opts:
         if o in ["-h"]:
@@ -250,11 +277,23 @@ if __name__ == "__main__":
             """Specify TODO_DIR from command line"""
             TODO_DIR = a
 
-    # Options processsed - ready to go 
+    # Options processed - ready to go
     todo.setDirs(TODO_DIR)
     setDirs(todo.TODO_DIR)
 
-    # TODO Add checks to see that we are only run once per day
-    if (len(args) < 1):
-        """ Default action - should probably be help """
-        addTodayTasks(RECUR_FILE)
+    # Do a check to see that we are only run once per day
+    skip = False
+    check_file = os.path.join(TODO_DIR, ".cron_check_file")
+    if os.path.isfile(check_file):
+        mod_time = os.path.getmtime(check_file)
+        today = date.today()
+        if today == date.fromtimestamp(mod_time):
+            skip = True # already ran today
+
+    if not skip:
+        if (len(args) < 1):
+            """ Default action - should probably be help """
+            addTodayTasks(RECUR_FILE)
+            # 'touch' the file to create the file and/or
+            # update the modification date
+            open(check_file, 'w').close() 

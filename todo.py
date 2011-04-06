@@ -23,7 +23,7 @@ __history__   = "See http://todo-py.googlecode.com/svn/trunk/CHANGELOG"
 # leave blank to use default ~/todo or ~\My Documents directories
 # For *nix use / dir separators, Windows use raw strings: eg. r"c:\dir"
 # Or set this using the --todo-dir '/home/user/todo' format
-TODO_DIR = ''
+TODO_DIR = '/Users/sid/Documents/todo'
 
 # Set default color theme
 # ANSI (light|dark|nocolor) or Windows Console (windark)
