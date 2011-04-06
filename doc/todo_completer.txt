@@ -1,0 +1,27 @@
+** Installation of todo_completer.sh for todo.py **
+
+1. Edit the todo_completer.sh file and change the TODO_FILE variable for your todo.txt location
+2. Save the file to ~/.bash_completion.d/todo_completer.sh.
+3. Add the following lines to your ~/.bashrc (Mac users: ~/.bash_profile,
+    Cygwin users ~/.profile):
+
+    source ~/.bash_completion.d/todo_completer.sh
+
+4. If you've aliased todo.sh to t, also add the following line to ~/.bashrc
+    (Mac: ~/.bash_profile, Cygwin users ~/.profile):
+
+    complete -F _todo_sh -o default t
+
+    Replace the t in the second line to whatever you aliased todo.sh to.
+
+5. To load your .bashrc (or .bash_profile or .profile) changes:
+
+    $ source ~/.bashrc
+    Mac users, do:
+    $ source ~/.bash_profile
+    Cygwin users, do:
+    $ source ~/.profile
+
+Notes
+
+ * Mac users, here's help viewing/editing files and folders that start with a dot.

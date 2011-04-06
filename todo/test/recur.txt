@@ -1,0 +1,8 @@
+{29} pay rent check every month on the 28th
+{15 30} do on 1st and 15th day of the month
+{Wed} Take out trash
+{Nov 30 2006} @email birthday card to sister 
+{Mon Thu Fri} backup filesystem
+{Nov 22 2007} Eat turkey
+{Dec 01 +3} Warn 5 days before to send birthday card to grandma
+{Nov 27 *5} Warn for 5 days after event

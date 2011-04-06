@@ -1,0 +1,8 @@
+
+Unzip this bundle in your home directory.
+
+To use todo.sh - edit the .todo file in your home directory.
+
+pico ~/.todo
+
+Replace this: "/home/user/todo" with wherever your todo.txt lives.
