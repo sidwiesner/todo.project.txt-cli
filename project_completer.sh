@@ -1,8 +1,14 @@
-# PROJECT.sh completion Sid Wiesner. This is copied heavily from
-# the todo.sh completion by Pedro Melo <melo@simplicidade.org>
+# PROJECT.sh completion by Pedro Melo <melo@simplicidade.org>
 # 
+# for updates see: http://todotxt.com/library/todo_completer.sh/
 
-PROJECTS_DIR=~/.todo/projects
+# Modified by Gina Trapani 7/20/2006
+# - added new options (fqv) and command listall in todo.sh 1.7
+# - removed @ symbols (threw an error)
+# Modified by Gina Trapani 7/29/2006
+# - added new command options, listall/ls/lsa/a/p/app/prep/lsp
+
+PROJECTS_DIR=/Users/sid/Documents/todo/projects
 
 seq_replacement()
 { 
@@ -35,7 +41,7 @@ _project_sh()
     commands="$commands $PROJECTSH_OTHER_COMMANDS"
   fi
 
-  TODOSHRC=$HOME/bin/todo.cfg
+  TODOSHRC=${TODOTXT_CFG_FILE:-$HOME/.todo/todo.cfg}
   # PROJECTSHRC=${PROJECTSHRC:-$HOME/bin/PROJECT.cfg}
   if [[ -r $TODOSHRC ]] ; then
     . $TODOSHRC

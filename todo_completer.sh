@@ -39,8 +39,7 @@ _todo_sh()
     commands="$commands $TODOSH_OTHER_COMMANDS"
   fi
 
-  TODOSHRC=$HOME/bin/todo.cfg
-  # TODOSHRC=${TODOSHRC:-$HOME/bin/todo.cfg}
+  TODOSHRC=${TODOTXT_CFG_FILE:-$HOME/.todo/todo.cfg}
   if [[ -r $TODOSHRC ]] ; then
     . $TODOSHRC
   fi

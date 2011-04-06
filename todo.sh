@@ -6,6 +6,7 @@
 [ -f VERSION-FILE ] && . VERSION-FILE || VERSION="2.4"
 version() { sed -e 's/^    //' <<EndVersion
         TODO.TXT Command Line Interface v$VERSION
+        
         First release: 5/11/2006
         Original conception by: Gina Trapani (http://ginatrapani.org)
         Contributors: http://github.com/ginatrapani/todo.txt-cli/network

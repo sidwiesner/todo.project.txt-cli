@@ -6,3 +6,17 @@ To use todo.sh - edit the .todo file in your home directory.
 pico ~/.todo
 
 Replace this: "/home/user/todo" with wherever your todo.txt lives.
+
+Add these lines to your ~/.profile file:
+
+# TODO.TXT and Project helpers
+export TODOTXT_CFG_FILE=$HOME/bin/todo.cfg
+alias t='todo.sh -a -d $TODOTXT_CFG_FILE'
+alias tl='t ls -@waiting'
+alias tlt='t ls @today'
+alias tlw='t waiting'
+alias p='project.sh -v -d $TODOTXT_CFG_FILE'
+complete -F _todo_sh -o default t
+source ~/bin/todo_completer.sh
+complete -F _project_sh -o default p
+source ~/bin/project_completer.sh
